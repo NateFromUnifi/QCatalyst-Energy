@@ -7,7 +7,6 @@ const RANGES: { value: TimeRange; label: string }[] = [
   { value: "90d", label: "90D" },
   { value: "180d", label: "6M" },
   { value: "1y", label: "1Y" },
-  { value: "all", label: "All" },
 ];
 
 interface TimeRangeSelectorProps {
