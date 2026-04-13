@@ -72,10 +72,18 @@ def run_pipeline(skip_sentiment: bool = False):
             wcs_date = wcs_data["date"]
             wcs_spot = wcs_data["wcs_spot"]
 
-            # Try to get WTI for the same date to compute spread
+            # Try to get WTI for the same date (or most recent) to compute spread
             wti_for_date = None
-            if fred_data and wcs_date in fred_data:
-                wti_for_date = fred_data[wcs_date].get("wti_spot")
+            if fred_data:
+                if wcs_date in fred_data:
+                    wti_for_date = fred_data[wcs_date].get("wti_spot")
+                else:
+                    # Use most recent WTI price available
+                    sorted_dates = sorted(fred_data.keys(), reverse=True)
+                    for d in sorted_dates:
+                        if fred_data[d].get("wti_spot") is not None:
+                            wti_for_date = fred_data[d]["wti_spot"]
+                            break
 
             wcs_row = {"date": wcs_date, "wcs_spot": wcs_spot}
             if wti_for_date:
