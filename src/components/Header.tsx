@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 interface HeaderProps {
   lastUpdated: string | null;
 }
@@ -16,13 +18,21 @@ export default function Header({ lastUpdated }: HeaderProps) {
             Quantitative correlation dashboard for crude oil markets
           </p>
         </div>
-        {lastUpdated && (
-          <div className="text-right text-sm text-gray-500">
-            <span>Last updated</span>
-            <br />
-            <span className="text-gray-400">{lastUpdated}</span>
-          </div>
-        )}
+        <div className="flex items-center gap-6">
+          <Link
+            href="/about"
+            className="text-sm text-gray-500 hover:text-gray-200 transition-colors"
+          >
+            About
+          </Link>
+          {lastUpdated && (
+            <div className="text-right text-sm text-gray-500">
+              <span>Last updated</span>
+              <br />
+              <span className="text-gray-400">{lastUpdated}</span>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );
