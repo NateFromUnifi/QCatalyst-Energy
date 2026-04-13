@@ -9,7 +9,7 @@ Usage:
   python pipeline/main.py --skip-sentiment  # skip LLM scoring (for testing)
 
 Environment variables required:
-  FRED_API_KEY, EIA_API_KEY, GROQ_API_KEY, OILPRICE_API_KEY (optional),
+  FRED_API_KEY, EIA_API_KEY, GROQ_API_KEY, OILPRICE_API_KEY,
   NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 """
 
@@ -25,9 +25,9 @@ from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env.local"))
 
-from fetchers.fred import fetch_fred_prices
+from fetchers.oilprice import fetch_oil_prices
+from fetchers.fred import fetch_fred_prices, fetch_fred_dxy
 from fetchers.eia import fetch_eia_weekly
-from fetchers.wcs import fetch_wcs_price
 from fetchers.sentiment import fetch_and_score_sentiment
 from compute.correlations import compute_all_correlations
 from db import (
@@ -47,55 +47,40 @@ def run_pipeline(skip_sentiment: bool = False):
 
     errors = []
 
-    # Step 1: Fetch price data from FRED
-    print("[1/5] Fetching FRED prices (WTI, Brent, DXY)...")
+    # Step 1: Fetch WTI, Brent, WCS from OilPriceAPI (same source = same dates)
+    print("[1/5] Fetching oil prices (WTI, Brent, WCS) from OilPriceAPI...")
     try:
-        fred_data = fetch_fred_prices(lookback_days=7)
-        # Convert to list of row dicts
-        price_rows = []
-        for date, values in fred_data.items():
-            row = {"date": date, **values}
-            price_rows.append(row)
-
-        count = upsert_daily_prices(price_rows)
-        print(f"  -> Upserted {count} price rows\n")
-    except Exception as e:
-        print(f"  ERROR: {e}\n")
-        errors.append(f"FRED: {e}")
-
-    # Step 2: Fetch WCS price
-    print("[2/5] Fetching WCS price...")
-    try:
-        wcs_data = fetch_wcs_price()
-        if wcs_data:
-            # Merge WCS into daily_prices — need WTI for spread calc
-            wcs_date = wcs_data["date"]
-            wcs_spot = wcs_data["wcs_spot"]
-
-            # Try to get WTI for the same date (or most recent) to compute spread
-            wti_for_date = None
-            if fred_data:
-                if wcs_date in fred_data:
-                    wti_for_date = fred_data[wcs_date].get("wti_spot")
-                else:
-                    # Use most recent WTI price available
-                    sorted_dates = sorted(fred_data.keys(), reverse=True)
-                    for d in sorted_dates:
-                        if fred_data[d].get("wti_spot") is not None:
-                            wti_for_date = fred_data[d]["wti_spot"]
-                            break
-
-            wcs_row = {"date": wcs_date, "wcs_spot": wcs_spot}
-            if wti_for_date:
-                wcs_row["wcs_wti_spread"] = round(wcs_spot - wti_for_date, 2)
-
-            count = upsert_daily_prices([wcs_row])
-            print(f"  -> WCS: ${wcs_spot} (spread: {wcs_row.get('wcs_wti_spread', 'N/A')})\n")
+        oil_data = fetch_oil_prices()
+        if oil_data:
+            count = upsert_daily_prices([oil_data])
+            spread = oil_data.get("wcs_wti_spread", "N/A")
+            print(f"  -> WTI: ${oil_data.get('wti_spot')} | Brent: ${oil_data.get('brent_spot')} | WCS: ${oil_data.get('wcs_spot')}")
+            print(f"  -> WCS-WTI spread: ${spread}")
+            print(f"  -> Upserted {count} price row(s)\n")
         else:
-            print("  -> No WCS data available\n")
+            print("  -> OilPriceAPI unavailable, falling back to FRED...\n")
+            # Fallback: FRED for WTI/Brent (no WCS, 1-2 day lag)
+            fred_data = fetch_fred_prices(lookback_days=7)
+            price_rows = [{"date": date, **values} for date, values in fred_data.items()]
+            count = upsert_daily_prices(price_rows)
+            print(f"  -> FRED fallback: upserted {count} price rows\n")
     except Exception as e:
         print(f"  ERROR: {e}\n")
-        errors.append(f"WCS: {e}")
+        errors.append(f"Prices: {e}")
+
+    # Step 2: Fetch DXY from FRED (not available on OilPriceAPI)
+    print("[2/5] Fetching DXY (USD index) from FRED...")
+    try:
+        dxy_data = fetch_fred_dxy(lookback_days=7)
+        dxy_rows = [{"date": date, "dxy_index": val} for date, val in dxy_data.items()]
+        if dxy_rows:
+            count = upsert_daily_prices(dxy_rows)
+            print(f"  -> Upserted {count} DXY row(s)\n")
+        else:
+            print("  -> No new DXY data\n")
+    except Exception as e:
+        print(f"  ERROR: {e}\n")
+        errors.append(f"FRED/DXY: {e}")
 
     # Step 3: Fetch EIA weekly fundamentals
     print("[3/5] Fetching EIA weekly data...")

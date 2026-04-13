@@ -23,6 +23,36 @@ SERIES = {
 }
 
 
+def fetch_fred_dxy(lookback_days: int = 7) -> dict[str, float]:
+    """
+    Fetch only the DXY (USD index) from FRED.
+
+    Returns a dict keyed by date string, values are floats.
+    """
+    api_key = os.environ["FRED_API_KEY"]
+    start_date = (datetime.now() - timedelta(days=lookback_days)).strftime("%Y-%m-%d")
+
+    params = {
+        "series_id": "DTWEXBGS",
+        "api_key": api_key,
+        "file_type": "json",
+        "observation_start": start_date,
+        "sort_order": "desc",
+    }
+    resp = requests.get(FRED_BASE, params=params, timeout=30)
+    resp.raise_for_status()
+    data = resp.json()
+
+    result: dict[str, float] = {}
+    for obs in data.get("observations", []):
+        date = obs["date"]
+        value = obs["value"]
+        if value != ".":
+            result[date] = float(value)
+
+    return result
+
+
 def fetch_fred_prices(lookback_days: int = 7) -> dict:
     """
     Fetch the latest available values for WTI, Brent, and DXY from FRED.

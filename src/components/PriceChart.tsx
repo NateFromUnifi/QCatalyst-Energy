@@ -12,7 +12,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, differenceInDays } from "date-fns";
 import type { DailyPrice, WeeklyFundamental, DailySentiment } from "@/types/database";
 
 interface PriceChartProps {
@@ -52,11 +52,37 @@ export default function PriceChart({
     });
   };
 
-  // Merge all data sources by date
+  // Find the latest date where all 3 benchmarks have data
+  const { latestCommonDate, dataLagDays, latestDates } = useMemo(() => {
+    let latestWti: string | null = null;
+    let latestBrent: string | null = null;
+    let latestWcs: string | null = null;
+
+    for (let i = prices.length - 1; i >= 0; i--) {
+      if (!latestWti && prices[i].wti_spot != null) latestWti = prices[i].date;
+      if (!latestBrent && prices[i].brent_spot != null) latestBrent = prices[i].date;
+      if (!latestWcs && prices[i].wcs_spot != null) latestWcs = prices[i].date;
+      if (latestWti && latestBrent && latestWcs) break;
+    }
+
+    const dates = [latestWti, latestBrent, latestWcs].filter(Boolean) as string[];
+    const commonDate = dates.length > 0 ? dates.sort()[0] : null; // earliest of the latest = common cutoff
+    const today = new Date().toISOString().split("T")[0];
+    const lag = commonDate ? differenceInDays(parseISO(today), parseISO(commonDate)) : null;
+
+    return {
+      latestCommonDate: commonDate,
+      dataLagDays: lag,
+      latestDates: { wti: latestWti, brent: latestBrent, wcs: latestWcs },
+    };
+  }, [prices]);
+
+  // Merge all data sources by date, trimmed to common date
   const chartData = useMemo(() => {
     const byDate: Record<string, Record<string, number | null>> = {};
 
     for (const p of prices) {
+      if (latestCommonDate && p.date > latestCommonDate) continue;
       byDate[p.date] = {
         ...byDate[p.date],
         wti: p.wti_spot,
@@ -69,6 +95,7 @@ export default function PriceChart({
 
     for (const f of fundamentals) {
       const d = f.week_ending;
+      if (latestCommonDate && d > latestCommonDate) continue;
       byDate[d] = {
         ...byDate[d],
         inventoryDelta: f.inventory_delta != null ? f.inventory_delta / 1000 : null,
@@ -76,6 +103,7 @@ export default function PriceChart({
     }
 
     for (const s of sentiment) {
+      if (latestCommonDate && s.date > latestCommonDate) continue;
       byDate[s.date] = {
         ...byDate[s.date],
         sentiment: s.sentiment_score,
@@ -85,7 +113,7 @@ export default function PriceChart({
     return Object.entries(byDate)
       .map(([date, values]) => ({ date, ...values }))
       .sort((a, b) => a.date.localeCompare(b.date));
-  }, [prices, fundamentals, sentiment]);
+  }, [prices, fundamentals, sentiment, latestCommonDate]);
 
   if (chartData.length === 0) {
     return (
@@ -209,6 +237,8 @@ export default function PriceChart({
               dot={false}
               name="WTI"
               connectNulls
+              animationDuration={800}
+              animationEasing="ease-in-out"
             />
           )}
           {activeOverlays.has("brent") && (
@@ -221,6 +251,8 @@ export default function PriceChart({
               dot={false}
               name="Brent"
               connectNulls
+              animationDuration={800}
+              animationEasing="ease-in-out"
             />
           )}
           {activeOverlays.has("wcs") && (
@@ -233,6 +265,8 @@ export default function PriceChart({
               dot={false}
               name="WCS"
               connectNulls
+              animationDuration={800}
+              animationEasing="ease-in-out"
             />
           )}
 
@@ -247,6 +281,8 @@ export default function PriceChart({
               dot={false}
               name="Sentiment"
               connectNulls
+              animationDuration={800}
+              animationEasing="ease-in-out"
             />
           )}
           {activeOverlays.has("inventory") && (
@@ -256,6 +292,8 @@ export default function PriceChart({
               fill="#f97316"
               opacity={0.6}
               name="Inv. Delta (M bbl)"
+              animationDuration={800}
+              animationEasing="ease-in-out"
             />
           )}
           {activeOverlays.has("spread") && (
@@ -268,6 +306,8 @@ export default function PriceChart({
               dot={false}
               name="WCS-WTI"
               connectNulls
+              animationDuration={800}
+              animationEasing="ease-in-out"
             />
           )}
           {activeOverlays.has("dxy") && (
@@ -280,10 +320,34 @@ export default function PriceChart({
               dot={false}
               name="DXY"
               connectNulls
+              animationDuration={800}
+              animationEasing="ease-in-out"
             />
           )}
         </ComposedChart>
       </ResponsiveContainer>
+
+      {/* Data lag disclaimer */}
+      <div className="mt-3 text-[11px] text-gray-500 flex flex-wrap gap-x-4 gap-y-1">
+        <span>
+          Chart ends at {latestCommonDate ? format(parseISO(latestCommonDate), "MMM d, yyyy") : "—"}
+          {dataLagDays != null && dataLagDays > 0 && (
+            <> ({dataLagDays}d lag from today)</>
+          )}
+        </span>
+        <span className="text-gray-600">|</span>
+        <span>
+          Latest WTI: {latestDates.wti ?? "—"}
+          {" \u00B7 "}
+          Brent: {latestDates.brent ?? "—"}
+          {" \u00B7 "}
+          WCS: {latestDates.wcs ?? "—"}
+        </span>
+        <span className="text-gray-600">|</span>
+        <span>
+          Data sources update on different schedules. The chart is trimmed to the most recent date where all active benchmarks have data.
+        </span>
+      </div>
     </div>
   );
 }
