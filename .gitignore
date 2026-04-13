@@ -34,6 +34,13 @@ yarn-error.log*
 .env*.local
 .env
 
+# python
+__pycache__/
+*.pyc
+
+# claude
+.claude/
+
 # vercel
 .vercel
 
