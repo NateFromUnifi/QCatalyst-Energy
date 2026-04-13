@@ -21,7 +21,7 @@ SERIES = {
     "crude_inventories": "PET.WCESTUS1.W",
     "crude_production": "PET.WCRFPUS2.W",
     "crude_imports": "PET.WCRIMUS2.W",
-    "cushing_stocks": "PET.WCESTOK1.W",
+    "cushing_stocks": "PET.W_EPC0_SAX_YCUOK_MBBL.W",
 }
 
 
@@ -31,10 +31,14 @@ def _fetch_series(series_id: str, limit: int = 5) -> list[dict]:
     url = f"{EIA_BASE}/{series_id}"
     params = {"api_key": api_key}
 
-    resp = requests.get(url, params=params, timeout=30)
-    resp.raise_for_status()
-    data = resp.json()
+    try:
+        resp = requests.get(url, params=params, timeout=30)
+        resp.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        print(f"  Warning: EIA series {series_id} returned {e.response.status_code}, skipping")
+        return []
 
+    data = resp.json()
     rows = data.get("response", {}).get("data", [])
     # Sort by period descending and take the most recent entries
     rows.sort(key=lambda r: r.get("period", ""), reverse=True)
