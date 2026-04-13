@@ -33,10 +33,20 @@ def upsert_daily_prices(rows: list[dict]) -> int:
     if not rows:
         return 0
 
-    all_cols = ["date", "wti_spot", "brent_spot", "wcs_spot", "wcs_wti_spread", "dxy_index"]
-    clean_rows = [{col: row.get(col) for col in all_cols} for row in rows]
+    valid_cols = {"date", "wti_spot", "brent_spot", "wcs_spot", "wcs_wti_spread", "dxy_index"}
+    clean_rows = [{col: val for col, val in row.items() if col in valid_cols} for row in rows]
 
-    resp = req.post(_url("daily_prices") + "?on_conflict=date", json=clean_rows, headers=_headers(), timeout=30)
+    # Tell PostgREST which columns are in the payload so it only touches those,
+    # preventing WCS-only upserts from nullifying WTI/Brent/DXY (and vice versa).
+    present_cols = set()
+    for r in clean_rows:
+        present_cols.update(r.keys())
+    columns_param = ",".join(sorted(present_cols))
+
+    resp = req.post(
+        _url("daily_prices") + f"?on_conflict=date&columns={columns_param}",
+        json=clean_rows, headers=_headers(), timeout=30,
+    )
     if not resp.ok:
         print(f"    DB Error {resp.status_code}: {resp.text[:300]}")
         resp.raise_for_status()

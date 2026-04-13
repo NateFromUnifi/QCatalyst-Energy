@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import type {
   DailyPrice,
   WeeklyFundamental,
@@ -58,8 +58,36 @@ export default function Dashboard() {
     loadData(timeRange);
   }, [timeRange, loadData]);
 
-  const latestPrice = prices.length > 0 ? prices[prices.length - 1] : null;
-  const prevPrice = prices.length > 1 ? prices[prices.length - 2] : null;
+  // Build a "latest snapshot" by scanning backward for the most recent
+  // non-null value per field (data lands on different dates per source)
+  const latestPrice = useMemo(() => {
+    if (prices.length === 0) return null;
+    const snapshot: Partial<DailyPrice> = { date: prices[prices.length - 1].date };
+    const fields = ["wti_spot", "brent_spot", "wcs_spot", "wcs_wti_spread", "dxy_index"] as const;
+    for (const field of fields) {
+      for (let i = prices.length - 1; i >= 0; i--) {
+        if (prices[i][field] != null) {
+          (snapshot as Record<string, unknown>)[field] = prices[i][field];
+          break;
+        }
+      }
+    }
+    return snapshot as DailyPrice;
+  }, [prices]);
+
+  // For "previous" price, find the second-most-recent non-null WTI value
+  const prevPrice = useMemo(() => {
+    if (prices.length < 2) return null;
+    let foundFirst = false;
+    for (let i = prices.length - 1; i >= 0; i--) {
+      if (prices[i].wti_spot != null) {
+        if (foundFirst) return prices[i];
+        foundFirst = true;
+      }
+    }
+    return null;
+  }, [prices]);
+
   const latestFundamental =
     fundamentals.length > 0 ? fundamentals[fundamentals.length - 1] : null;
   const latestSentiment =
