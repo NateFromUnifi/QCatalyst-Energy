@@ -60,12 +60,31 @@ export default function Dashboard() {
 
   // Build a "latest snapshot" by scanning backward for the most recent
   // non-null value per field (data lands on different dates per source)
-  const latestPrice = useMemo(() => {
-    if (prices.length === 0) return null;
+  const { latestPrice, fieldDates } = useMemo(() => {
+    if (prices.length === 0) return { latestPrice: null, fieldDates: {} as Record<string, string> };
     const snapshot: Partial<DailyPrice> = { date: prices[prices.length - 1].date };
+    const dates: Record<string, string> = {};
     const fields = ["wti_spot", "brent_spot", "wcs_spot", "wcs_wti_spread", "dxy_index"] as const;
     for (const field of fields) {
       for (let i = prices.length - 1; i >= 0; i--) {
+        if (prices[i][field] != null) {
+          (snapshot as Record<string, unknown>)[field] = prices[i][field];
+          dates[field] = prices[i].date;
+          break;
+        }
+      }
+    }
+    return { latestPrice: snapshot as DailyPrice, fieldDates: dates };
+  }, [prices]);
+
+  // "Previous" price = first non-null value in the selected range
+  // so the % change reflects the full timeframe movement
+  const rangeStartPrice = useMemo(() => {
+    if (prices.length < 2) return null;
+    const snapshot: Partial<DailyPrice> = {};
+    const fields = ["wti_spot", "brent_spot", "wcs_spot", "dxy_index"] as const;
+    for (const field of fields) {
+      for (let i = 0; i < prices.length; i++) {
         if (prices[i][field] != null) {
           (snapshot as Record<string, unknown>)[field] = prices[i][field];
           break;
@@ -73,19 +92,6 @@ export default function Dashboard() {
       }
     }
     return snapshot as DailyPrice;
-  }, [prices]);
-
-  // For "previous" price, find the second-most-recent non-null WTI value
-  const prevPrice = useMemo(() => {
-    if (prices.length < 2) return null;
-    let foundFirst = false;
-    for (let i = prices.length - 1; i >= 0; i--) {
-      if (prices[i].wti_spot != null) {
-        if (foundFirst) return prices[i];
-        foundFirst = true;
-      }
-    }
-    return null;
   }, [prices]);
 
   const latestFundamental =
@@ -125,9 +131,11 @@ export default function Dashboard() {
         {/* Today's snapshot */}
         <TodaySnapshot
           price={latestPrice}
-          prevPrice={prevPrice}
+          rangeStartPrice={rangeStartPrice}
           fundamental={latestFundamental}
           sentiment={latestSentiment}
+          fieldDates={fieldDates}
+          timeRange={timeRange}
         />
 
         {/* Price chart */}
