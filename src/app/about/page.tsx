@@ -57,8 +57,9 @@ export default function AboutPage() {
           <ol className="list-decimal list-inside space-y-2 text-gray-400 ml-2">
             <li>
               <span className="text-gray-200 font-medium">Fetch benchmark prices</span> — WTI, Brent, and WCS
-              spot prices are pulled from OilPriceAPI, ensuring all three benchmarks land on the same
-              date with no lag difference.
+              daily closing prices are pulled from OilPriceAPI (with FRED as a fallback for WTI and Brent).
+              Prices are typically delayed 1–2 business days from the source APIs, so the most recent
+              data point on any given day reflects the close from 1–2 trading days prior.
             </li>
             <li>
               <span className="text-gray-200 font-medium">Fetch USD index</span> — The DXY (US Dollar Index)
@@ -96,9 +97,9 @@ export default function AboutPage() {
                 </tr>
               </thead>
               <tbody>
-                <SourceRow name="WTI Spot" source="OilPriceAPI" frequency="Daily" description="West Texas Intermediate crude oil spot price (USD/bbl)" />
-                <SourceRow name="Brent Spot" source="OilPriceAPI" frequency="Daily" description="Brent crude oil spot price (USD/bbl)" />
-                <SourceRow name="WCS Spot" source="OilPriceAPI" frequency="Daily" description="Western Canadian Select heavy crude spot price (USD/bbl)" />
+                <SourceRow name="WTI Close" source="OilPriceAPI / FRED" frequency="Daily (1-2d delay)" description="West Texas Intermediate crude oil daily close (USD/bbl)" />
+                <SourceRow name="Brent Close" source="OilPriceAPI / FRED" frequency="Daily (1-2d delay)" description="Brent crude oil daily close (USD/bbl)" />
+                <SourceRow name="WCS Close" source="OilPriceAPI" frequency="Daily (1-2d delay)" description="Western Canadian Select heavy crude daily close (USD/bbl)" />
                 <SourceRow name="DXY" source="FRED API" frequency="Daily" description="Trade-weighted US Dollar Index" />
                 <SourceRow name="Crude Inventories" source="EIA API" frequency="Weekly (Wed)" description="US commercial crude oil stocks excl. SPR (thousand bbl)" />
                 <SourceRow name="Crude Production" source="EIA API" frequency="Weekly (Wed)" description="US crude oil field production (thousand bbl/day)" />
@@ -201,7 +202,8 @@ export default function AboutPage() {
         <footer className="border-t border-gray-800 pt-6 mt-10 pb-8">
           <p className="text-xs text-gray-600">
             Built as a quantitative finance learning project. Not financial advice.
-            Data is sourced from public APIs and may be delayed. Correlations do not imply causation.
+            All prices are daily closes sourced from public APIs and are typically delayed 1–2
+            business days. Data is not real-time. Correlations do not imply causation.
           </p>
         </footer>
       </main>

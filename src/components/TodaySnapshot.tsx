@@ -64,7 +64,7 @@ function PriceCard({
         )}
       </div>
       <div className="text-xl font-semibold font-mono">
-        {value != null ? `${prefix}${value.toFixed(decimals)}` : "—"}
+        {value != null ? `${prefix}${value.toFixed(decimals)}` : "\u2014"}
       </div>
       <div className="flex items-center justify-between mt-0.5">
         {change != null ? (
@@ -83,7 +83,7 @@ function PriceCard({
           <span />
         )}
         {date && (
-          <span className="text-[10px] text-gray-600">{formatDate(date)}</span>
+          <span className="text-[10px] text-gray-500">{formatDate(date)}</span>
         )}
       </div>
     </div>
@@ -107,7 +107,7 @@ export default function TodaySnapshot({
         value={price?.wti_spot ?? null}
         prevValue={rangeStartPrice?.wti_spot ?? null}
         date={fieldDates.wti_spot}
-        priceType="spot"
+        priceType="daily close"
         rangeLabel={rl}
       />
       <PriceCard
@@ -115,7 +115,7 @@ export default function TodaySnapshot({
         value={price?.brent_spot ?? null}
         prevValue={rangeStartPrice?.brent_spot ?? null}
         date={fieldDates.brent_spot}
-        priceType="spot"
+        priceType="daily close"
         rangeLabel={rl}
       />
       <PriceCard
@@ -123,7 +123,7 @@ export default function TodaySnapshot({
         value={price?.wcs_spot ?? null}
         prevValue={rangeStartPrice?.wcs_spot ?? null}
         date={fieldDates.wcs_spot}
-        priceType="spot"
+        priceType="daily close"
         rangeLabel={rl}
       />
       <PriceCard
@@ -139,28 +139,36 @@ export default function TodaySnapshot({
         prefix=""
         decimals={2}
         date={fieldDates.dxy_index}
-        priceType="close"
+        priceType="daily close"
         rangeLabel={rl}
       />
       <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700/50">
-        <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">
-          Sentiment
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs text-gray-400 uppercase tracking-wide">
+            Sentiment
+          </span>
+          <span className="text-[10px] text-gray-600 uppercase">daily avg</span>
         </div>
         <div className="text-xl font-semibold font-mono">
           {sentiment?.sentiment_score != null
             ? `${sentiment.sentiment_score}`
-            : "—"}
+            : "\u2014"}
           <span className="text-sm text-gray-500"> / 10</span>
         </div>
-        {sentiment?.date && (
-          <div className="text-[10px] text-gray-600 mt-0.5 text-right">
-            {formatDate(sentiment.date)}
-          </div>
-        )}
+        <div className="flex items-center justify-end mt-0.5">
+          {sentiment?.date && (
+            <span className="text-[10px] text-gray-500">
+              {formatDate(sentiment.date)}
+            </span>
+          )}
+        </div>
       </div>
       <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700/50">
-        <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">
-          Inventory Delta
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs text-gray-400 uppercase tracking-wide">
+            Inventory Delta
+          </span>
+          <span className="text-[10px] text-gray-600 uppercase">weekly</span>
         </div>
         <div className="text-xl font-semibold font-mono">
           {fundamental?.inventory_delta != null ? (
@@ -175,14 +183,16 @@ export default function TodaySnapshot({
               {(fundamental.inventory_delta / 1000).toFixed(1)}M
             </span>
           ) : (
-            "—"
+            "\u2014"
           )}
         </div>
-        {fundamental?.week_ending && (
-          <div className="text-[10px] text-gray-600 mt-0.5 text-right">
-            w/e {formatDate(fundamental.week_ending)}
-          </div>
-        )}
+        <div className="flex items-center justify-end mt-0.5">
+          {fundamental?.week_ending && (
+            <span className="text-[10px] text-gray-500">
+              w/e {formatDate(fundamental.week_ending)}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

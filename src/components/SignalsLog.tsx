@@ -18,6 +18,8 @@ interface SignalsLogProps {
 interface MergedRow {
   date: string;
   wti: number | null;
+  brent: number | null;
+  wcs: number | null;
   changePercent: number | null;
   inventoryDelta: number | null;
   sentimentScore: number | null;
@@ -76,6 +78,8 @@ export default function SignalsLog({
       merged.push({
         date: curr.date,
         wti: curr.wti_spot,
+        brent: curr.brent_spot,
+        wcs: curr.wcs_spot,
         changePercent,
         inventoryDelta: fund?.inventory_delta ?? null,
         sentimentScore: sent?.sentiment_score ?? null,
@@ -101,7 +105,12 @@ export default function SignalsLog({
 
   return (
     <div className="bg-gray-800/50 rounded-lg border border-gray-700/50 p-4">
-      <h2 className="text-lg font-semibold mb-4">Signals Log</h2>
+      <div className="flex items-baseline justify-between mb-4">
+        <h2 className="text-lg font-semibold">Signals Log</h2>
+        <span className="text-[10px] text-gray-500">
+          Prices are daily closes, typically delayed 1–2 business days from source
+        </span>
+      </div>
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -109,6 +118,8 @@ export default function SignalsLog({
             <tr className="text-xs text-gray-400 uppercase tracking-wide border-b border-gray-700">
               <th className="text-left py-2 pr-4">Date</th>
               <th className="text-right py-2 px-3">WTI</th>
+              <th className="text-right py-2 px-3">Brent</th>
+              <th className="text-right py-2 px-3">WCS</th>
               <th className="text-right py-2 px-3">{"\u0394"}%</th>
               <th className="text-right py-2 px-3">Inv. {"\u0394"}</th>
               <th className="text-right py-2 px-3">Sent.</th>
@@ -143,6 +154,12 @@ export default function SignalsLog({
                   </td>
                   <td className="text-right py-2 px-3 font-mono">
                     {row.wti != null ? `$${row.wti.toFixed(2)}` : "—"}
+                  </td>
+                  <td className="text-right py-2 px-3 font-mono text-gray-400">
+                    {row.brent != null ? `$${row.brent.toFixed(2)}` : "—"}
+                  </td>
+                  <td className="text-right py-2 px-3 font-mono text-gray-400">
+                    {row.wcs != null ? `$${row.wcs.toFixed(2)}` : "—"}
                   </td>
                   <td
                     className={`text-right py-2 px-3 font-mono ${
@@ -186,7 +203,7 @@ export default function SignalsLog({
                 {/* Expanded headline detail */}
                 {expandedDate === row.date && row.headlines && (
                   <tr key={`${row.date}-detail`}>
-                    <td colSpan={7} className="py-2 px-4 bg-gray-900/50">
+                    <td colSpan={9} className="py-2 px-4 bg-gray-900/50">
                       <div className="text-xs space-y-1.5">
                         <div className="text-gray-400 font-medium mb-2">
                           Headlines scored ({row.headlines.length})

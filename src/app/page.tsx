@@ -128,7 +128,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Today's snapshot */}
+        {/* Latest available data snapshot */}
         <TodaySnapshot
           price={latestPrice}
           rangeStartPrice={rangeStartPrice}
@@ -164,11 +164,12 @@ export default function Dashboard() {
         {/* Data health footer */}
         <footer className="border-t border-gray-800 pt-4 pb-8">
           <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-gray-600">
-            <span>Days of price data: {prices.length}</span>
-            <span>Weekly fundamental rows: {fundamentals.length}</span>
+            <span>Price rows: {prices.length}</span>
+            <span>Fundamental rows: {fundamentals.length}</span>
             <span>Sentiment rows: {sentiment.length}</span>
             <span>Correlation entries: {correlations.length}</span>
-            {lastUpdated && <span>Latest data: {lastUpdated}</span>}
+            {lastUpdated && <span>Most recent data date: {lastUpdated}</span>}
+            <span>Prices are daily closes, delayed 1–2 business days</span>
           </div>
         </footer>
       </main>

@@ -92,7 +92,7 @@ def upsert_correlations(rows: list[dict]) -> int:
     }
     clean_rows = [{k: v for k, v in row.items() if k in valid_cols} for row in rows]
 
-    resp = req.post(_url("correlations") + "?on_conflict=computed_date,hypothesis,lag_days,window_days", json=clean_rows, headers=_headers(), timeout=30)
+    resp = req.post(_url("correlations") + "?on_conflict=computed_date,hypothesis,target,lag_days,window_days", json=clean_rows, headers=_headers(), timeout=30)
     resp.raise_for_status()
     return len(resp.json())
 

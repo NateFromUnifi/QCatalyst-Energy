@@ -3,11 +3,22 @@ Compute correlation metrics for each hypothesis.
 
 Uses scipy.stats.pearsonr for correlation coefficient and p-value.
 Computes rolling windows (30d, 60d, 90d) and lagged correlations.
+
+H1-H3 are computed against all three benchmarks (WTI, Brent, WCS).
+H4 is always computed as WCS-WTI spread vs crude inventories.
 """
 
 import numpy as np
 from scipy import stats
 from datetime import datetime
+
+
+# Benchmarks to compute H1-H3 against
+BENCHMARKS = [
+    ("wti", "wti_spot"),
+    ("brent", "brent_spot"),
+    ("wcs", "wcs_spot"),
+]
 
 
 def compute_all_correlations(data: dict) -> list[dict]:
@@ -23,9 +34,13 @@ def compute_all_correlations(data: dict) -> list[dict]:
     today = datetime.now().strftime("%Y-%m-%d")
     results = []
 
-    results.extend(_compute_h1(data, today))
-    results.extend(_compute_h2(data, today))
-    results.extend(_compute_h3(data, today))
+    # H1-H3: computed for each benchmark
+    for bench_name, bench_field in BENCHMARKS:
+        results.extend(_compute_h1(data, today, bench_name, bench_field))
+        results.extend(_compute_h2(data, today, bench_name, bench_field))
+        results.extend(_compute_h3(data, today, bench_name, bench_field))
+
+    # H4: always WCS spread vs inventories (benchmark-agnostic)
     results.extend(_compute_h4(data, today))
 
     return results
@@ -54,10 +69,10 @@ def _pearson(x: list[float], y: list[float]) -> tuple[float | None, float | None
     return round(float(r), 4), round(float(p), 6), n
 
 
-def _compute_h1(data: dict, today: str) -> list[dict]:
+def _compute_h1(data: dict, today: str, bench_name: str, bench_field: str) -> list[dict]:
     """
     H1: Inventory-Price Relationship.
-    Test: inventory_delta vs wti_weekly_change (same week).
+    Test: inventory_delta vs benchmark_weekly_change (same week).
     """
     fundamentals = data["weekly_fundamentals"]
     prices = data["daily_prices"]
@@ -65,10 +80,10 @@ def _compute_h1(data: dict, today: str) -> list[dict]:
     if len(fundamentals) < 2 or not prices:
         return []
 
-    # Build a lookup of WTI prices by date
-    price_by_date = {p["date"]: p.get("wti_spot") for p in prices}
+    # Build a lookup of benchmark prices by date
+    price_by_date = {p["date"]: p.get(bench_field) for p in prices}
 
-    # For each fundamental week, find the WTI price on the week_ending date
+    # For each fundamental week, find the benchmark price on the week_ending date
     # and compute the weekly price change
     inv_deltas = []
     price_changes = []
@@ -97,7 +112,7 @@ def _compute_h1(data: dict, today: str) -> list[dict]:
             "computed_date": today,
             "hypothesis": "H1_inventory_price",
             "indicator": "inventory_delta",
-            "target": "wti_weekly_change",
+            "target": f"{bench_name}_weekly_change",
             "lag_days": 0,
             "window_days": window,
             "pearson_r": r,
@@ -108,10 +123,10 @@ def _compute_h1(data: dict, today: str) -> list[dict]:
     return results
 
 
-def _compute_h2(data: dict, today: str) -> list[dict]:
+def _compute_h2(data: dict, today: str, bench_name: str, bench_field: str) -> list[dict]:
     """
     H2: Sentiment-Price Lead.
-    Test: sentiment_score vs wti_daily_change at lags 0, 1, 2, 3, 5.
+    Test: sentiment_score vs benchmark_daily_change at lags 0, 1, 2, 3, 5.
     """
     sentiment = data["daily_sentiment"]
     prices = data["daily_prices"]
@@ -126,8 +141,10 @@ def _compute_h2(data: dict, today: str) -> list[dict]:
     for i in range(1, len(sorted_prices)):
         curr = sorted_prices[i]
         prev = sorted_prices[i - 1]
-        if curr.get("wti_spot") and prev.get("wti_spot") and float(prev["wti_spot"]) != 0:
-            change = (float(curr["wti_spot"]) - float(prev["wti_spot"])) / float(prev["wti_spot"]) * 100
+        curr_val = curr.get(bench_field)
+        prev_val = prev.get(bench_field)
+        if curr_val and prev_val and float(prev_val) != 0:
+            change = (float(curr_val) - float(prev_val)) / float(prev_val) * 100
             price_by_date[curr["date"]] = change
 
     sent_by_date = {s["date"]: float(s["sentiment_score"]) for s in sentiment
@@ -159,7 +176,7 @@ def _compute_h2(data: dict, today: str) -> list[dict]:
                 "computed_date": today,
                 "hypothesis": "H2_sentiment_price",
                 "indicator": "sentiment_score",
-                "target": "wti_daily_change",
+                "target": f"{bench_name}_daily_change",
                 "lag_days": lag,
                 "window_days": window,
                 "pearson_r": r,
@@ -170,42 +187,42 @@ def _compute_h2(data: dict, today: str) -> list[dict]:
     return results
 
 
-def _compute_h3(data: dict, today: str) -> list[dict]:
+def _compute_h3(data: dict, today: str, bench_name: str, bench_field: str) -> list[dict]:
     """
     H3: Dollar-Oil Inverse.
-    Test: dxy_daily_change vs wti_daily_change (same day).
+    Test: dxy_daily_change vs benchmark_daily_change (same day).
     """
     prices = data["daily_prices"]
     sorted_prices = sorted(prices, key=lambda p: p["date"])
 
     dxy_changes = []
-    wti_changes = []
+    price_changes = []
 
     for i in range(1, len(sorted_prices)):
         curr = sorted_prices[i]
         prev = sorted_prices[i - 1]
 
-        curr_wti = curr.get("wti_spot")
-        prev_wti = prev.get("wti_spot")
+        curr_price = curr.get(bench_field)
+        prev_price = prev.get(bench_field)
         curr_dxy = curr.get("dxy_index")
         prev_dxy = prev.get("dxy_index")
 
-        if all(v is not None for v in [curr_wti, prev_wti, curr_dxy, prev_dxy]):
-            if float(prev_wti) != 0 and float(prev_dxy) != 0:
-                wti_changes.append((float(curr_wti) - float(prev_wti)) / float(prev_wti) * 100)
+        if all(v is not None for v in [curr_price, prev_price, curr_dxy, prev_dxy]):
+            if float(prev_price) != 0 and float(prev_dxy) != 0:
+                price_changes.append((float(curr_price) - float(prev_price)) / float(prev_price) * 100)
                 dxy_changes.append((float(curr_dxy) - float(prev_dxy)) / float(prev_dxy) * 100)
 
     results = []
     for window in [30, 60, 90]:
         d = dxy_changes[-window:] if len(dxy_changes) > window else dxy_changes
-        w = wti_changes[-window:] if len(wti_changes) > window else wti_changes
+        w = price_changes[-window:] if len(price_changes) > window else price_changes
 
         r, p, n = _pearson(d, w)
         results.append({
             "computed_date": today,
             "hypothesis": "H3_dollar_oil",
             "indicator": "dxy_daily_change",
-            "target": "wti_daily_change",
+            "target": f"{bench_name}_daily_change",
             "lag_days": 0,
             "window_days": window,
             "pearson_r": r,
@@ -220,6 +237,7 @@ def _compute_h4(data: dict, today: str) -> list[dict]:
     """
     H4: WCS Spread Dynamics.
     Test: wcs_wti_spread vs inventory levels (same period).
+    This is benchmark-agnostic — always uses the WCS-WTI spread.
     """
     prices = data["daily_prices"]
     fundamentals = data["weekly_fundamentals"]

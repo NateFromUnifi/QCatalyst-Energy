@@ -127,7 +127,9 @@ export default function PriceChart({
     <div className="bg-gray-800/50 rounded-lg border border-gray-700/50 p-4">
       <div className="flex flex-col gap-2 mb-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Crude Oil Prices</h2>
+          <h2 className="text-lg font-semibold">Crude Oil Prices
+            <span className="text-xs font-normal text-gray-500 ml-2">Historical daily close</span>
+          </h2>
           <div className="flex flex-wrap gap-2">
             {PRICE_LINES.map(({ key, label, color }) => (
               <button
@@ -327,25 +329,25 @@ export default function PriceChart({
         </ComposedChart>
       </ResponsiveContainer>
 
-      {/* Data lag disclaimer */}
-      <div className="mt-3 text-[11px] text-gray-500 flex flex-wrap gap-x-4 gap-y-1">
+      {/* Data freshness notice */}
+      <div className="mt-3 text-xs text-gray-400 bg-gray-900/50 rounded px-3 py-2 flex flex-wrap gap-x-4 gap-y-1">
         <span>
-          Chart ends at {latestCommonDate ? format(parseISO(latestCommonDate), "MMM d, yyyy") : "—"}
+          Data through {latestCommonDate ? format(parseISO(latestCommonDate), "MMM d, yyyy") : "\u2014"}
           {dataLagDays != null && dataLagDays > 0 && (
-            <> ({dataLagDays}d lag from today)</>
+            <span className="text-gray-500"> ({dataLagDays}d behind today)</span>
           )}
         </span>
         <span className="text-gray-600">|</span>
-        <span>
-          Latest WTI: {latestDates.wti ?? "—"}
+        <span className="text-gray-500">
+          Latest: WTI {latestDates.wti ?? "\u2014"}
           {" \u00B7 "}
-          Brent: {latestDates.brent ?? "—"}
+          Brent {latestDates.brent ?? "\u2014"}
           {" \u00B7 "}
-          WCS: {latestDates.wcs ?? "—"}
+          WCS {latestDates.wcs ?? "\u2014"}
         </span>
         <span className="text-gray-600">|</span>
-        <span>
-          Data sources update on different schedules. The chart is trimmed to the most recent date where all active benchmarks have data.
+        <span className="text-gray-500">
+          Prices are daily closes from EIA and OilPriceAPI, typically delayed 1\u20132 business days.
         </span>
       </div>
     </div>

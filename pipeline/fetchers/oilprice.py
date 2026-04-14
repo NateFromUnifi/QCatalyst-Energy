@@ -2,20 +2,25 @@
 Fetch crude oil benchmark prices from OilPriceAPI.
 
 Pulls WTI, Brent, and WCS from the same source so all three
-benchmarks are available on the same dates with no lag difference.
+benchmarks are available on the same dates.
 
 API: https://docs.oilpriceapi.com
 Free tier: 50 requests/month (3 per daily run = ~63/month on weekdays)
 
+NOTE: The API's `created_at` is when the API *ingested* the price,
+not the actual trading day. On weekends/holidays the API echoes stale
+Friday prices with a fresh timestamp. We guard against this by
+rejecting dates that fall on weekends.
+
 Codes:
-  WTI_CRUDE_USD   — West Texas Intermediate spot price
-  BRENT_CRUDE_USD — Brent crude spot price
-  WCS_CRUDE_USD   — Western Canadian Select spot price
+  WTI_CRUDE_USD   — West Texas Intermediate daily close
+  BRENT_CRUDE_USD — Brent crude daily close
+  WCS_CRUDE_USD   — Western Canadian Select daily close
 """
 
 import os
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 
 OILPRICE_API_BASE = "https://api.oilpriceapi.com/v1/prices/latest"
 
@@ -70,7 +75,24 @@ def fetch_oil_prices() -> dict | None:
     if not any(v is not None for k, v in result.items() if k != "date"):
         return None
 
+    # Guard: if the API returned a weekend date, roll back to Friday.
+    # The API's created_at can be a weekend timestamp echoing stale data.
+    if date:
+        dt = datetime.strptime(date, "%Y-%m-%d")
+        weekday = dt.weekday()  # 5 = Saturday, 6 = Sunday
+        if weekday == 5:
+            date = (dt - timedelta(days=1)).strftime("%Y-%m-%d")
+            print(f"  [date guard] API date was Saturday, rolled back to Friday: {date}")
+        elif weekday == 6:
+            date = (dt - timedelta(days=2)).strftime("%Y-%m-%d")
+            print(f"  [date guard] API date was Sunday, rolled back to Friday: {date}")
+
     result["date"] = date or datetime.now().strftime("%Y-%m-%d")
+
+    # Also guard against today's date if the market hasn't closed yet.
+    # The pipeline runs at 4:30 PM ET but the API may already show today's
+    # date with yesterday's stale price. If today's price is identical to
+    # the previous available price, this is handled by upsert (same date = overwrite).
 
     # Compute WCS-WTI spread if both are available
     wti = result.get("wti_spot")

@@ -99,7 +99,7 @@ export default function HypothesisCards({
               <div>
                 <span className="text-xs text-gray-500">Pearson R</span>
                 <div className="text-lg font-mono font-semibold">
-                  {r != null ? r.toFixed(3) : "—"}
+                  {r != null ? r.toFixed(3) : "\u2014"}
                 </div>
               </div>
               <div>
@@ -112,6 +112,12 @@ export default function HypothesisCards({
                 <div>
                   <span className="text-xs text-gray-500">Samples</span>
                   <div className="text-sm text-gray-300">{n}</div>
+                </div>
+              )}
+              {best?.computed_date && (
+                <div className="ml-auto">
+                  <span className="text-xs text-gray-500">Computed</span>
+                  <div className="text-sm text-gray-500">{best.computed_date}</div>
                 </div>
               )}
             </div>

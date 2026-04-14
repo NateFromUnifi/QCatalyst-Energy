@@ -27,7 +27,7 @@ export default function Header({ lastUpdated }: HeaderProps) {
           </Link>
           {lastUpdated && (
             <div className="text-right text-sm text-gray-500">
-              <span>Last updated</span>
+              <span>Data as of</span>
               <br />
               <span className="text-gray-400">{lastUpdated}</span>
             </div>
